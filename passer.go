@@ -20,7 +20,7 @@ type executeResult[RESULT any] struct {
 var sep = []byte("!?@#")
 
 // 注册函数类型
-type Dofunc[RESULT any] func(cxt context.Context, obj any) (RESULT, error)
+type Dofunc[RESULT any] func(ctx context.Context, obj any) (RESULT, error)
 
 // 已注册函数信息
 type passerType[RESULT any] struct {
