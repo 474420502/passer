@@ -12,6 +12,7 @@ import (
 
 func init() {
 	gob.Register(map[string]interface{}{})
+	gob.Register([]interface{}{})
 }
 
 // 执行结果
