@@ -10,6 +10,10 @@ import (
 	"sync"
 )
 
+func init() {
+	gob.Register(map[string]interface{}{})
+}
+
 // 执行结果
 type executeResult[RESULT any] struct {
 	result *RESULT
