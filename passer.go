@@ -11,9 +11,11 @@ import (
 )
 
 func init() {
-
+	gob.Register(map[any]any{})
 	gob.Register(map[string]interface{}{})
 	gob.Register([]interface{}{})
+	gob.Register([]map[any]any{})
+	gob.Register([]map[string]any{})
 }
 
 // 执行结果
@@ -23,7 +25,7 @@ type executeResult[RESULT any] struct {
 }
 
 // 分隔符
-var sep = []byte("!?@#")
+var sep = []byte{'\x1F', '\x02', '\x1E'}
 
 // 注册函数类型
 type Dofunc[RESULT any] func(ctx context.Context, obj any) (RESULT, error)
@@ -101,12 +103,12 @@ func (p *Passer[RESULT]) ExecuteWithBytes(ctx context.Context, data []byte) (RES
 	passer, ok := p.registedObject[string(data[:idx])]
 	if !ok {
 		p.mu.Unlock()
-		return result, nil
+		return result, ErrUnknown
 	}
 	p.mu.Unlock()
 
 	obj := reflect.New(passer.SType)
-	var buf = bytes.NewBuffer(data[idx+4:])
+	var buf = bytes.NewBuffer(data[idx+len(sep):])
 	err = gob.NewDecoder(buf).DecodeValue(obj)
 	if err != nil {
 		return result, err
