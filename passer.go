@@ -50,7 +50,7 @@ func NewPasser[RESULT any]() *Passer[RESULT] {
 	}
 }
 
-// RegisterPasser 注册一个函数到 Passer 中，使得在后续执行过程中可以根据数据类型调用对应的函数。
+// RegisterPasser 注册一个函数到 Passer 中，使得在后续执行过程中可以根据数据类型调用对应的函数。 注意不返回已经存在的函数
 // 参数：
 //
 //	t 代表要处理的数据类型实例
@@ -67,6 +67,19 @@ func (p *Passer[RESULT]) RegisterPasser(t any, do Dofunc[RESULT]) {
 		SType:  stype,
 		Dofunc: do,
 	}
+}
+
+// HasRegister 坚持注册函数是否存在
+func (p *Passer[RESULT]) HasRegister(t any) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// 获取类型 t 的反射类型
+	stype := reflect.TypeOf(t)
+
+	_, ok := p.registedObject[stype.String()]
+
+	return ok
 }
 
 // PackToBytes 将给定的数据对象序列化成字节数组，其中包括类型标识和序列化后的数据。
@@ -115,6 +128,9 @@ func (p *Passer[RESULT]) ExecuteWithBytes(ctx context.Context, data []byte) (RES
 
 	// 查找并提取数据类型标识
 	idx := bytes.Index(data, sep)
+	if idx == -1 {
+		return result, ErrUnknown
+	}
 
 	p.mu.Lock()
 	// 根据类型标识查找对应的注册函数
@@ -137,9 +153,9 @@ func (p *Passer[RESULT]) ExecuteWithBytes(ctx context.Context, data []byte) (RES
 
 	// 使用 goroutine 异步执行函数，并通过 channel 接收执行结果
 	done := make(chan executeResult[RESULT])
-	defer close(done)
 
 	go func() {
+		defer close(done)
 		resultVal, execErr := passer.Dofunc(ctx, obj.Elem().Interface())
 		done <- executeResult[RESULT]{&resultVal, execErr}
 	}()
@@ -148,7 +164,7 @@ func (p *Passer[RESULT]) ExecuteWithBytes(ctx context.Context, data []byte) (RES
 	select {
 	case <-ctx.Done():
 		// 超时或取消时返回错误信息
-		return result, fmt.Errorf("%v execute timeout", obj)
+		return result, ctx.Err()
 	case rdone := <-done:
 		if rdone.Error != nil {
 			return result, rdone.Error
